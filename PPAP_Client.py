@@ -2,6 +2,10 @@ import argparse
 import os
 import getpass
 import zipfile
+import base64
+
+# TODO: 公開鍵認証を使ったPPAPSの実装
+# TODO: 
 
 def check_password_protected_zip(file_path: str) -> bool:
     try:
@@ -29,8 +33,13 @@ def getPass():
 if os.path.isfile(input_path):
     if check_password_protected_zip(input_path):
         passwd=getPass()
+        with open(input_path, 'br') as f1:
+            b64_img = base64.b64encode(f1.read())
+            print(str(b64_img))
         # TODO: エンコード
-        # TODO: 送信
+        # TODO: ファイル名送信
+        # TODO: ファイル送信
+        # TODO: パスワード送信
 else:
     # TODO: パスワード付きZIPに圧縮
     passwd=getPass()
