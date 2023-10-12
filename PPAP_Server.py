@@ -10,7 +10,7 @@ while True:
     temp = client.recv(1024)
     data+=temp
     if not temp:
-         break
+        break
 splited_data=str(data).split("\\n")
 with open(str(splited_data[0]), 'bw') as f:
     f.write(base64.b64decode(splited_data[1]))

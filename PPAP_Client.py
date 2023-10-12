@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(
                         I have a password.\t\
                         Uh Passworded Zip file.\t\
                             I have a network connection.\t\
-                                  I have sent that with password.\t\
-                                      Uh PPAP!.')
+                                I have sent that with password.\t\
+                                    Uh PPAP!.')
 parser.add_argument('-i', '--input', required=True, nargs='?',
                     help='folder or passworded zip file path')
 parser.add_argument('-t', '--target', required=True,
@@ -53,7 +53,6 @@ if os.path.isfile(input_path):
             con.sendall(bytes(file_name+"\n","utf-8"))
             con.sendall(b64_file+b"\n")
             con.sendall(bytes(passwd+"\n","utf-8"))
-            
 else:
     # TODO: パスワード付きZIPに圧縮
     passwd = getPass()
