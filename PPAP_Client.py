@@ -3,11 +3,10 @@ import os
 import getpass
 import zipfile
 import socket
-import struct
 import base64
 
 # TODO: 公開鍵認証を使ったPPAPSの実装
-# TODO:
+# TODO: プロトコル自体の再考
 
 
 def check_password_protected_zip(file_path: str) -> bool:

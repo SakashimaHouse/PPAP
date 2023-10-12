@@ -1,5 +1,6 @@
 import socket
 import base64
+# プロトコル自体の再考
 server = socket.socket()
 server.bind(("", 26025))
 server.listen()
