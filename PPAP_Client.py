@@ -2,8 +2,9 @@ import argparse
 import os
 import getpass
 import zipfile
-import base64
 import socket
+import struct
+import base64
 
 # TODO: 公開鍵認証を使ったPPAPSの実装
 # TODO:
@@ -33,6 +34,7 @@ parser.add_argument('-t', '--target', required=True,
                     nargs='?', help='target Node IP address')
 args = parser.parse_args()
 input_path = args.input
+file_name=os.path.basename(input_path)
 target = args.target
 port = 26025  # base64(ppap) -> 26025 https://v2.cryptii.com/base64/decimal
 
@@ -46,13 +48,13 @@ if os.path.isfile(input_path):
     if check_password_protected_zip(input_path):
         passwd = getPass()
         with open(input_path, 'br') as f1:
-            b64_img = base64.b64encode(f1.read())
-            print(str(b64_img))
+            b64_file = base64.b64encode(f1.read())
             con = socket.socket()
             con.connect((target, port))
-        # TODO: ファイル名送信
-        # TODO: ファイル送信
-        # TODO: パスワード送信
+            con.sendall(bytes(file_name+"\n","utf-8"))
+            con.sendall(b64_file+b"\n")
+            con.sendall(bytes(passwd+"\n","utf-8"))
+            
 else:
     # TODO: パスワード付きZIPに圧縮
     passwd = getPass()
