@@ -1,18 +1,17 @@
 import socket
 import base64
-# プロトコル自体の再考
 server = socket.socket()
 server.bind(("", 26025))
 server.listen()
-client,addr = server.accept()
-data=b""
+client, addr = server.accept()
+data = b""
 while True:
     temp = client.recv(1024)
-    data+=temp
+    data += temp
     if not temp:
         break
-splited_data=str(data).split("\\n")
-with open(str(splited_data[0]), 'bw') as f:
+splited_data = data.decode('utf-8').split("\n")
+with open(splited_data[0], 'bw') as f:
     f.write(base64.b64decode(splited_data[1]))
 print("password is "+splited_data[2])
 client.close()
