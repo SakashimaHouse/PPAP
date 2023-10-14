@@ -5,9 +5,7 @@ import zipfile
 import socket
 import base64
 from zipencrypt import ZipFile
-import platform
-import subprocess
-import sys
+
 # TODO: 公開鍵認証を使ったPPAPSの実装
 
 
@@ -19,6 +17,7 @@ def zipdir(directory, zipname, password):
             for filename in filenames:
                 print(foldername, filename)
                 zf.write(os.path.abspath(foldername)+os.path.sep+filename)
+# windowsの標準コマンドであるcompactを使う方法では、/P:オプションが廃止されていたので諦めた
 # def make_zip(directory, zipname, passwd):
 #     os_version = platform.platform().lower()
 #     if "windows" in os_version:
@@ -36,8 +35,8 @@ def check_password_protected_zip(file_path: str) -> bool:
 
 
 parser = argparse.ArgumentParser(
-    prog='PPAP server',
-    description='Receive a Passworded zip file and a password.',
+    prog='PPAP Client',
+    description='パスワード付きzipファイルを送信します パスワードを送信します 暗号化 プロトコル(笑)',
     epilog='I have a zip.\t\
                         I have a password.\t\
                         Uh Passworded Zip file.\t\
@@ -45,16 +44,16 @@ parser = argparse.ArgumentParser(
                                 I have sent that with password.\t\
                                     Uh PPAP!.')
 parser.add_argument('-i', '--input', required=True, nargs='?',
-                    help='folder or passworded zip file path')
+                    help='送信したいディレクトリかパスワード付きzipファイル')
 parser.add_argument('-t', '--target', required=True,
-                    nargs='?', help='target Node IP address')
+                    nargs='?', help='ターゲットのIP')
 args = parser.parse_args()
 input_path: str = args.input
 file_name: str = os.path.basename(input_path)
 folder_name = os.path.basename(
     input_path[0, -1] if input_path.endswith(os.path.sep) else input_path)
 target = args.target
-port = 26025  # base64(ppap) -> 26025 https://v2.cryptii.com/base64/decimal
+port = 26025  # ppapをbase64デコードした番号 -> 26025 https://v2.cryptii.com/base64/decimal
 
 
 def getPass():
