@@ -1,3 +1,4 @@
 zipencrypt
 zipfile
 argparse
+pycryptodome
