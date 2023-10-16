@@ -26,7 +26,7 @@ args = parser.parse_args()
 input_path: str = args.input
 file_name: str = os.path.basename(input_path)
 folder_name = os.path.basename(
-    input_path[0, -1] if input_path.endswith(os.path.sep) else input_path)
+    input_path[0:-1] if input_path.endswith(os.path.sep) else input_path)
 target = args.target
 secure = args.secure
 
