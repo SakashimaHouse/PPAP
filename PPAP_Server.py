@@ -9,16 +9,27 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import binascii
 server = socket.socket()
+def parse_arg() ->bool:
+    parser = argparse.ArgumentParser(
+        prog='PPAP Server',
+        description='パスワード付きzipファイルを送信します パスワードを送信します 暗号化 プロトコル',
+        epilog='I have a zip.\tI have a password.\tUh Passworded Zip file.\tI have a network connection.\tI have sent that with password.\tUh PPAP!.')
+    parser.add_argument('-s', '--secure',
+                        action='store_true', help='ハイブリッド暗号通信を使う')
+    args = parser.parse_args()
+    return(args.secure)
 
-parser = argparse.ArgumentParser(
-    prog='PPAP Server',
-    description='パスワード付きzipファイルを送信します パスワードを送信します 暗号化 プロトコル',
-    epilog='I have a zip.\tI have a password.\tUh Passworded Zip file.\tI have a network connection.\tI have sent that with password.\tUh PPAP!.')
-parser.add_argument('-s', '--secure',
-                    action='store_true', help='ハイブリッド暗号通信を使う')
-args = parser.parse_args()
-secure = args.secure
 
+def recerve_encrypted_data(con,cipher_suite,until_end):
+    if until_end:
+        data = b""
+        while True:
+            temp = con.recv(1024)
+            data += temp
+            if not temp:
+                break
+        return(data)
+    else:
 
 def ppaps():
     keyPair = RSA.generate(bits=1024)
@@ -32,12 +43,7 @@ def ppaps():
     common_key = decryptor.decrypt(encrypted_key)
     cipher_suite = Fernet(common_key)
     client.sendall(bytes("ACK"+"\n", "utf-8"))
-    data = b""
-    while True:
-        temp = client.recv(1024)
-        data += temp
-        if not temp:
-            break
+    data=recerve_encrypted_data()
     print(data)
     splited_data = cipher_suite.decrypt(
         base64.b64decode(data)).decode('utf-8').split("\n")
@@ -65,9 +71,10 @@ def ppap():
     client.close()
     server.close()
 
-
-if secure:
-    ppaps()
-else:
-    ppap()
+if __name__=='__main__':
+    secure=parse_arg()
+    if secure:
+        ppaps()
+    else:
+        ppap()
 # threading.Thread(target=)

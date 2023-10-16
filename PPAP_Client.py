@@ -10,38 +10,67 @@ from Crypto.Cipher import PKCS1_OAEP
 from cryptography.fernet import Fernet
 import binascii
 # TODO: 公開鍵認証を使ったPPAPSの実装
-
-# 引数の解析
-parser = argparse.ArgumentParser(
-    prog='PPAP Client',
-    description='パスワード付きzipファイルを送信します パスワードを送信します 暗号化 プロトコル',
-    epilog='I have a zip.\tI have a password.\tUh Passworded Zip file.\tI have a network connection.\tI have sent that with password.\tUh PPAP!.')
-parser.add_argument('-i', '--input', required=True, nargs='?',
-                    help='送信したいディレクトリかパスワード付きzipファイル')
-parser.add_argument('-t', '--target', required=True,
-                    nargs='?', help='ターゲットのIP')
-parser.add_argument('-s', '--secure',
-                    action='store_true', help='ハイブリッド暗号通信を使う')
-args = parser.parse_args()
-input_path: str = args.input
-file_name: str = os.path.basename(input_path)
-folder_name = os.path.basename(
-    input_path[0:-1] if input_path.endswith(os.path.sep) else input_path)
-target = args.target
-secure = args.secure
+#本当はパスワードとファイル名を送ってからファイルを送ったほうが良いけど、PPAPプロトコルはファイル→パスワードって順番だからあきらめた
+# ppapをbase64(https://v2.cryptii.com/base64/decimal )でデコードした番号
+PORT_PPAP = 26025
+PORT_PPAPS = 26026
 
 
-def zipdir(directory, zipname, password):
-    print(zipname)
-    with ZipFile(zipname, 'w') as zf:
+def parse_arg() -> list[str or bool]:
+    """
+    argparseを使った引数の解析を行います。
+    返り値：
+        list[
+            input_path:str,
+            file_name:str,
+            folder_namestr,
+            target:str,
+            secure:bool
+        ]
+        プログラムの流れ：
+            ソフトウェアのヘルプ情報を設定
+            オプションを設定
+            引数をparse()
+            parseした引数を変数に代入
+    """
+    parser = argparse.ArgumentParser(
+        prog='PPAP Client',
+        description='パスワード付きzipファイルを送信します パスワードを送信します 暗号化 プロトコル',
+        epilog='I have a zip.\tI have a password.\tUh Passworded Zip file.\tI have a network connection.\tI have sent that with password.\tUh PPAP!.')
+    parser.add_argument('-i', '--input', required=True, nargs='?',
+                        help='送信したいディレクトリかパスワード付きzipファイル')
+    parser.add_argument('-t', '--target', required=True,
+                        nargs='?', help='ターゲットのIP')
+    parser.add_argument('-s', '--secure',
+                        action='store_true', help='ハイブリッド暗号通信を使う')
+    args = parser.parse_args()
+    input_object_path: str = args.input
+    zip_name: str = os.path.basename(input_object_path)
+    folder_name = os.path.basename(
+        input_object_path[0:-1] if input_object_path.endswith(os.path.sep) else input_object_path)
+    target_host = args.target
+    secure_flag = args.secure
+    return [input_object_path, zip_name, folder_name, target_host, str(secure_flag)]
+
+
+def zipdir(target_directory, out_zip_file_path, password):
+    """
+    ディレクトリをパスワード付きzipファイルに変換します。
+    TODO: zip圧縮後のzipファイル内のディレクトリ構造がカレントディレクトリからの相対パスになってしまっている問題
+    """
+    print(out_zip_file_path)
+    with ZipFile(out_zip_file_path, 'w') as zf:
         zf.setpassword(password.encode())
-        for foldername, subfolders, filenames in os.walk(directory):
+        for foldername, subfolders, filenames in os.walk(target_directory):
             for filename in filenames:
                 print(foldername, filename)
                 zf.write(os.path.abspath(foldername)+os.path.sep+filename)
 
 
 def check_password_protected_zip(file_path: str) -> bool:
+    """
+    指定されたパスがパスワード付きzipファイルかどうかチェックします。
+    """
     try:
         with zipfile.ZipFile(file_path) as zip_file:
             zip_file.testzip()
@@ -51,14 +80,22 @@ def check_password_protected_zip(file_path: str) -> bool:
 
 
 def getPass():
+    """
+    パスワードの入力を求めます。
+    入力したパスワードはコンソール上で非表示です。
+    返り値：
+        パスワード:str
+    """
     passwd = getpass.getpass("password:")
     return passwd
 
 
-if secure:
-    port = 26026
+def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
+    """
+    PPAPS接続を確立します
+    """
     con = socket.socket()
-    con.connect((target, port))
+    con.connect((target, PORT_PPAPS))
     temp = con.recv(1024)
     ne = temp.decode("utf-8").split("\n")
     public_key = RSA.construct((int(ne[0]), int(ne[1])))
@@ -68,47 +105,90 @@ if secure:
     con.sendall(binascii.hexlify(encrypted))
     temp = con.recv(1024)  # receive ACK
     cipher_suite = Fernet(common_key)
-    if os.path.isfile(input_path):
-        if check_password_protected_zip(input_path):
-            passwd = getPass()
-            with open(input_path, 'br') as f1:
-                b64_file = base64.b64encode(f1.read())
-                content = cipher_suite.encrypt(
-                    bytes(file_name, "utf-8")+b"\n"+b64_file+b"\n"+bytes(passwd, "utf-8"))
-                print(content)
-                con.sendall(base64.b64encode(content))
+    return (con, cipher_suite)
+
+
+def send_file_with_ppap(zip_name: str, con: socket.socket, passwd: str):
+    """
+    ファイルを開いてPPAPプロトコルで送信します
+    """
+    with open("tmp"+os.path.sep+zip_name, 'br') as f1:
+        b64_file = base64.b64encode(f1.read())
+        con.sendall(bytes(zip_name, "utf-8")+b"\n"+b64_file+b"\n")
+        con.sendall(bytes(passwd+"\n", "utf-8"))
+
+
+def send_file_with_PPAPS(zip_path: str, cipher_suite: Fernet, passwd, zip_name, con):
+    """
+    ファイルを開いてPPAPSプロトコルで送信します
+    """
+    with open(zip_path, 'br') as f1:
+        b64_file = base64.b64encode(f1.read())
+        content = cipher_suite.encrypt(
+            bytes(zip_name, "utf-8")+b"\n"+b64_file+b"\n"+bytes(passwd, "utf-8"))
+        con.sendall(base64.b64encode(content))
+
+
+if __name__ == '__main__':
+    """
+    このpythonファイルの処理はここから始まります
+    流れ：
+        引数解析
+        解析した引数を変数に代入
+        -s,--secureを使用しているなら、
+            PPAPSコネクションを確立する。
+            PPAPSコネクションでファイルを送信する。
+        そうでないなら
+            PPAPコネクションでファイルを送る
+    """
+    arg = parse_arg()
+    input_object_path: str = arg[0]
+    target_host: str = arg[3]
+    secure_flag: bool = bool(arg[4])
+    zip_name: str = arg[1]
+    folder_name: str = arg[2]
+    input_object_path_is_file = os.path.isfile(input_object_path)
+    zip_path = input_object_path if input_object_path_is_file else "." + \
+        os.path.sep+"tmp"+os.path.sep+folder_name+".zip"
+    passwd = getPass()
+
+    if secure_flag:
+        con, cipher_suite = establish_PPAPS_connection(target_host)
+        if input_object_path_is_file:
+            if check_password_protected_zip(zip_path):
+                send_file_with_PPAPS(
+                    zip_path, cipher_suite, passwd, zip_name, con)
+            else:
+                print("パスワード付きzipファイルのみ送信可能です。")
+        else:
+            zipdir(input_object_path, zip_path, passwd)
+            if check_password_protected_zip(zip_path):
+                send_file_with_PPAPS(
+                    zip_path, cipher_suite, passwd, zip_name, con)
+                os.remove(zip_path)
+            else:
+                print("パスワード付きzipファイルの作成に失敗しました")
     else:
-        folder_name = folder_name+".zip"
-        passwd = getPass()
-        zipdir(input_path, "tmp"+os.path.sep+folder_name, passwd)
-        # make_zip(input_path, "tmp"+os.path.sep+folder_name, passwd)
-        with open("tmp"+os.path.sep+folder_name, 'br') as f1:
-            b64_file = base64.b64encode(f1.read())
-            con.sendall(bytes(folder_name, "utf-8")+b"\n"+b64_file+b"\n")
-            con.sendall(bytes(passwd+"\n", "utf-8"))
-        os.remove("tmp"+os.path.sep+folder_name)
-        cipher_text = cipher_suite.encrypt(file_name.encode("utf-8"))
-else:
-    port = 26025  # ppapをbase64デコードした番号 -> 26025 https://v2.cryptii.com/base64/decimal
-    con = socket.socket()
-    con.connect((target, port))
-    if os.path.isfile(input_path):
-        if check_password_protected_zip(input_path):
-            passwd = getPass()
-            with open(input_path, 'br') as f1:
-                b64_file = base64.b64encode(f1.read())
-                con.sendall(bytes(file_name, "utf-8")+b"\n"+b64_file+b"\n")
-                con.sendall(bytes(passwd+"\n", "utf-8"))
-    else:
-        folder_name = folder_name+".zip"
-        passwd = getPass()
-        zipdir(input_path, "tmp"+os.path.sep+folder_name, passwd)
-        # make_zip(input_path, "tmp"+os.path.sep+folder_name, passwd)
-        with open("tmp"+os.path.sep+folder_name, 'br') as f1:
-            b64_file = base64.b64encode(f1.read())
-            con.sendall(bytes(folder_name, "utf-8")+b"\n"+b64_file+b"\n")
-            con.sendall(bytes(passwd+"\n", "utf-8"))
-        os.remove("tmp"+os.path.sep+folder_name)
+        con = socket.socket()
+        con.connect((target_host, PORT_PPAP))
+        if input_object_path_is_file:
+            if check_password_protected_zip(input_object_path):
+                send_file_with_ppap(zip_name, con, passwd)
+            else:
+                print("パスワード付きzipファイルのみ送信可能です。")
+        else:
+            folder_name: str = arg[2]
+            zipdir(input_object_path, zip_path, passwd)
+            if check_password_protected_zip(zip_path):
+                send_file_with_ppap(folder_name, con, passwd)
+                os.remove("tmp"+os.path.sep+folder_name)
+            else:
+                print("パスワード付きzipファイルの作成に失敗しました")
+
+
+"""
+以下コードスペニット
+"""
 
 
 # windowsの標準コマンドであるcompactを使う方法では、/P:オプションが廃止されていたので諦めた
@@ -117,3 +197,5 @@ else:
 #     if "windows" in os_version:
 #         subprocess.call(["compact", "/C", "/S", "/A", "/I",
 #                         "/EXE:","/P:"+passwd, zipname, directory])
+
+# make_zip(input_path, "tmp"+os.path.sep+folder_name, passwd)
