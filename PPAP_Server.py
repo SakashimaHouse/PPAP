@@ -76,11 +76,17 @@ def establish_ppaps_connection(con: socket.socket) -> Fernet:
 
 
 def decrypt(cipher_encrypted_text, cipher_suite: Fernet) -> bytes:
+    """
+    base64デコードしたのち、cipher_suiteで複合化する。
+    """
     return(cipher_suite.decrypt(
         base64.b64decode(cipher_encrypted_text)))
 
 
 def save_bfile(path, b_contents):
+    """
+    バイナリデータをファイルに保存する
+    """
     print(path)
     with open(path, 'bw') as f:
         f.write(b_contents)
@@ -88,6 +94,9 @@ def save_bfile(path, b_contents):
 
 # TODO: チェックサムの算出と検証
 def ppaps(server: socket.socket):
+    """
+    ファイルやその他情報をハイブリッド暗号化を用いて受け取る
+    """
     con = wait_connection(26026)
     cipher_suite = establish_ppaps_connection(con)
     name = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
@@ -103,6 +112,9 @@ def ppaps(server: socket.socket):
 
 # TODO: チェックサムの算出と検証
 def ppap(server: socket.socket):
+    """
+    ファイルやその他情報を通常の通信方法で受け取る
+    """
     con = con = wait_connection(26025)
     name = con.recv(1024).decode("utf-8")
     con.sendall(bytes(b"ACK"))

@@ -113,7 +113,7 @@ def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
 # TODO: チェックサムの算出と検証
 def send_file_with_ppap(zip_name, zip_path: str, con: socket.socket, passwd: str):
     """
-    PPAPプロトコルでファイル名、パスワード、パスワード付きzipファイルを送信します
+    ファイルやその他情報を通常の通信を用いて送信します
     """
     print("sending")
     con.sendall(bytes(zip_name, "utf-8"))
@@ -134,7 +134,7 @@ def send_file_with_ppap(zip_name, zip_path: str, con: socket.socket, passwd: str
 # TODO: チェックサムの算出と検証
 def send_file_with_PPAPS(zip_path: str, cipher_suite: Fernet, passwd: str, zip_name: str, con: socket.socket):
     """
-    PPAPSプロトコルでファイル名、パスワード、パスワード付きzipファイルを送信します
+    ファイルやその他情報をハイブリッド暗号を用いて送信します
     """
     con.sendall(base64.b64encode(cipher_suite.encrypt(bytes(zip_name,"utf8"))))
     con.recv(1024)  # receive ACK
