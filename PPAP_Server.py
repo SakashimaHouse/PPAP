@@ -76,8 +76,8 @@ def establish_ppaps_connection(con: socket.socket) -> Fernet:
 
 
 def decrypt(cipher_encrypted_text, cipher_suite: Fernet) -> bytes:
-    cipher_suite.decrypt(
-        base64.b64decode(cipher_encrypted_text)).decode('utf-8')
+    return(cipher_suite.decrypt(
+        base64.b64decode(cipher_encrypted_text)))
 
 
 def save_bfile(path, b_contents):
@@ -94,7 +94,7 @@ def ppaps(server: socket.socket):
     con.sendall(bytes(b"ACK"))
     passwd = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
     con.sendall(bytes(b"ACK"))
-    data = decrypt(receive_data_until_end(con))
+    data = decrypt(receive_data_until_end(con),cipher_suite)
     save_bfile(name, data)
     print("password is "+passwd)
     con.close()

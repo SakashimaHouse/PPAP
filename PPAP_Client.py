@@ -129,9 +129,9 @@ def send_file_with_PPAPS(zip_path: str, cipher_suite: Fernet, passwd: str, zip_n
     """
     PPAPSプロトコルでファイル名、パスワード、パスワード付きzipファイルを送信します
     """
-    con.sendall(base64.b64encode(cipher_suite.encrypt(zip_name)))
+    con.sendall(base64.b64encode(cipher_suite.encrypt(bytes(zip_name,"utf8"))))
     con.recv(1024)  # receive ACK
-    con.sendall(base64.b64encode(cipher_suite.encrypt(passwd)))
+    con.sendall(base64.b64encode(cipher_suite.encrypt(bytes(passwd,"utf-8"))))
     con.recv(1024)  # receive ACK
     with open(zip_path, 'br') as f1:
         con.sendall(base64.b64encode(cipher_suite.encrypt(f1.read())))
