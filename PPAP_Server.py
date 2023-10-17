@@ -1,13 +1,9 @@
 import socket
 import base64
-import os
-import threading
 import argparse
 from cryptography.fernet import Fernet
-# TODO: check if i have to add %appdata%\Python\Python311\Scripts to path
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-import binascii
 
 
 def parse_arg() -> bool:
