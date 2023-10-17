@@ -8,8 +8,19 @@ from cryptography.fernet import Fernet
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import binascii
-server = socket.socket()
-def parse_arg() ->bool:
+
+
+def parse_arg() -> bool:
+    """
+    argparseを使った引数の解析を行います。
+    返り値：
+        secure:bool
+    プログラムの流れ：
+            ソフトウェアのヘルプ情報を設定
+            オプションを設定
+            引数をparse()
+            parseした引数を変数に代入
+    """
     parser = argparse.ArgumentParser(
         prog='PPAP Server',
         description='パスワード付きzipファイルを送信します パスワードを送信します 暗号化 プロトコル',
@@ -17,64 +28,97 @@ def parse_arg() ->bool:
     parser.add_argument('-s', '--secure',
                         action='store_true', help='ハイブリッド暗号通信を使う')
     args = parser.parse_args()
-    return(args.secure)
+    return (args.secure)
 
 
-def recerve_encrypted_data(con,cipher_suite,until_end):
-    if until_end:
-        data = b""
-        while True:
-            temp = con.recv(1024)
-            data += temp
-            if not temp:
-                break
-        return(data)
-    else:
-
-def ppaps():
-    keyPair = RSA.generate(bits=1024)
-    server.bind(("", 26026))
-    server.listen()
-    client, addr = server.accept()
-    client.sendall(bytes(str(keyPair.publickey().n) +
-                   "\n"+str(keyPair.publickey().e)+"\n", "utf-8"))
-    encrypted_key = binascii.unhexlify(client.recv(1024))
-    decryptor = PKCS1_OAEP.new(keyPair)
-    common_key = decryptor.decrypt(encrypted_key)
-    cipher_suite = Fernet(common_key)
-    client.sendall(bytes("ACK"+"\n", "utf-8"))
-    data=recerve_encrypted_data()
-    print(data)
-    splited_data = cipher_suite.decrypt(
-        base64.b64decode(data)).decode('utf-8').split("\n")
-    with open(splited_data[0], 'bw') as f:
-        f.write(base64.b64decode(splited_data[1]))
-    print("password is "+splited_data[2])
-    client.close()
-    server.close()
-
-
-def ppap():
-    server.bind(("", 26025))
-    server.listen()
-    client, addr = server.accept()
+def receive_data_until_end(con) -> bytes:
+    """
+    接続終了までセグメントを受信する
+    """
     data = b""
     while True:
-        temp = client.recv(1024)
+        temp = con.recv(1024)
         data += temp
         if not temp:
             break
-    splited_data = data.decode('utf-8').split("\n")
-    with open(splited_data[0], 'bw') as f:
-        f.write(base64.b64decode(splited_data[1]))
-    print("password is "+splited_data[2])
-    client.close()
+    return (data)
+
+
+def wait_connection(port: int) -> socket.socket:
+    """
+    指定されたポートで接続を待つ
+    """
+    server.bind(("", port))
+    server.listen()
+    con, addr = server.accept()
+    return (con)
+
+
+def establish_ppaps_connection(con: socket.socket) -> Fernet:
+    """
+    セキュア通信の準備として鍵交換を行う
+    プログラムの流れ
+        サーバ側の公開鍵を送る
+        クライアントから共通鍵を受け取る
+        この共通鍵を復号化し、呼び出し元に返す
+    """
+    keyPair = RSA.generate(bits=1024)
+
+    con.sendall(bytes(str(keyPair.publickey().n) +
+                      "\n"+str(keyPair.publickey().e), "utf-8"))
+    con.recv(1024)  # receive ACK
+    encrypted_common_key = con.recv(1024)
+    con.sendall(bytes(b"ACK"))
+    decryptor = PKCS1_OAEP.new(keyPair)
+    common_key = decryptor.decrypt(encrypted_common_key)
+    cipher_suite = Fernet(common_key)
+    return cipher_suite
+
+
+def decrypt(cipher_encrypted_text, cipher_suite: Fernet) -> bytes:
+    cipher_suite.decrypt(
+        base64.b64decode(cipher_encrypted_text)).decode('utf-8')
+
+
+def save_bfile(path, b_contents):
+    with open(path, 'bw') as f:
+        f.write(b_contents)
+
+
+# TODO: チェックサムの算出と検証
+def ppaps(server: socket.socket):
+    con = wait_connection(26026)
+    cipher_suite = establish_ppaps_connection(con)
+    name = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
+    con.sendall(bytes(b"ACK"))
+    passwd = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
+    con.sendall(bytes(b"ACK"))
+    data = receive_data_until_end(con)
+    save_bfile(name, data)
+    print("password is "+passwd)
+    con.close()
     server.close()
 
-if __name__=='__main__':
-    secure=parse_arg()
+
+# TODO: チェックサムの算出と検証
+def ppap(server: socket.socket):
+    con = con = wait_connection(26025)
+    name = con.recv(1024).decode("utf-8")
+    con.sendall(bytes(b"ACK"))
+    passwd = con.recv(1024).decode("utf-8")
+    con.sendall(bytes(b"ACK"))
+    data = receive_data_until_end(con)
+    save_bfile(name, data)
+    print("password is "+passwd)
+    con.close()
+    server.close()
+
+
+if __name__ == '__main__':
+    server = socket.socket()
+    secure = parse_arg()
     if secure:
-        ppaps()
+        ppaps(server)
     else:
-        ppap()
+        ppap(server)
 # threading.Thread(target=)
