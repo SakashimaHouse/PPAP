@@ -8,7 +8,6 @@ from zipencrypt import ZipFile
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from cryptography.fernet import Fernet
-import binascii
 
 
 def parse_arg() -> list[str or bool]:
@@ -53,6 +52,10 @@ def zipdir(target_directory, out_zip_file_path, password):
     ディレクトリをパスワード付きzipファイルに変換します。
     TODO: zip圧縮後のzipファイル内のディレクトリ構造がカレントディレクトリからの相対パスになってしまっている問題
     """
+    try:
+        os.mkdir("tmp")
+    except:
+        pass
     with ZipFile(out_zip_file_path, 'w') as zf:
         zf.setpassword(password.encode())
         for foldername, subfolders, filenames in os.walk(target_directory):
@@ -69,8 +72,12 @@ def check_password_protected_zip(file_path: str) -> bool:
         with zipfile.ZipFile(file_path) as zip_file:
             zip_file.testzip()
             return False
-    except RuntimeError:
+    except RuntimeError:#passwordつきzipファイルだとランタイムエラーが発生する
         return True
+    except Exception:
+        #そもそもzipファイルでないばあい。そのばあいはzipfile.BadZipFileが発生するはずなのだが
+        #exceptにそれを指定するとなぜかきちんと動かない為、Exceptionで吸収している
+        return False
 
 
 def getPass():
@@ -157,11 +164,12 @@ if __name__ == '__main__':
     input_object_path: str = arg[0]
     target_host: str = arg[3]
     secure_flag: bool = arg[4] == "True"
-    zip_name: str = arg[1]+".zip"
+    
     folder_name: str = arg[2]
     input_object_path_is_file: bool = os.path.isfile(input_object_path)
     zip_path: str = input_object_path if input_object_path_is_file else "." + \
         os.path.sep+"tmp"+os.path.sep+folder_name+".zip"
+    zip_name: str = os.path.basename(zip_path)
     passwd: str = getPass()
     if secure_flag:
         con, cipher_suite = establish_PPAPS_connection(target_host)
