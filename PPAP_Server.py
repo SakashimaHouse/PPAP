@@ -81,6 +81,7 @@ def decrypt(cipher_encrypted_text, cipher_suite: Fernet) -> bytes:
 
 
 def save_bfile(path, b_contents):
+    print(path)
     with open(path, 'bw') as f:
         f.write(b_contents)
 
@@ -93,7 +94,7 @@ def ppaps(server: socket.socket):
     con.sendall(bytes(b"ACK"))
     passwd = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
     con.sendall(bytes(b"ACK"))
-    data = receive_data_until_end(con)
+    data = decrypt(receive_data_until_end(con))
     save_bfile(name, data)
     print("password is "+passwd)
     con.close()
@@ -107,7 +108,8 @@ def ppap(server: socket.socket):
     con.sendall(bytes(b"ACK"))
     passwd = con.recv(1024).decode("utf-8")
     con.sendall(bytes(b"ACK"))
-    data = receive_data_until_end(con)
+    data = base64.b64decode(receive_data_until_end(con))
+    
     save_bfile(name, data)
     print("password is "+passwd)
     con.close()
@@ -115,6 +117,16 @@ def ppap(server: socket.socket):
 
 
 if __name__ == '__main__':
+    """
+    このpythonファイルの処理はここから始まります
+    流れ：
+        引数解析
+        解析した引数を変数に代入
+        -s,--secureを使用しているなら、
+            PPAPSコネクションを使う
+        そうでないなら
+            PPAPコネクションを使う
+    """
     server = socket.socket()
     secure = parse_arg()
     if secure:

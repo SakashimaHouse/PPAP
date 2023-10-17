@@ -53,7 +53,6 @@ def zipdir(target_directory, out_zip_file_path, password):
     ディレクトリをパスワード付きzipファイルに変換します。
     TODO: zip圧縮後のzipファイル内のディレクトリ構造がカレントディレクトリからの相対パスになってしまっている問題
     """
-    print(out_zip_file_path)
     with ZipFile(out_zip_file_path, 'w') as zf:
         zf.setpassword(password.encode())
         for foldername, subfolders, filenames in os.walk(target_directory):
@@ -109,12 +108,19 @@ def send_file_with_ppap(zip_name, zip_path: str, con: socket.socket, passwd: str
     """
     PPAPプロトコルでファイル名、パスワード、パスワード付きzipファイルを送信します
     """
+    print("sending")
     con.sendall(bytes(zip_name, "utf-8"))
+    print("sended name")
     con.recv(1024)  # receive ACK
+    print("ack")
     con.sendall(bytes(passwd, "utf-8"))
+    print("sended passwd")
     con.recv(1024)  # receive ACK
+    print("ack")
+    print(zip_path)
     with open(zip_path, 'br') as f1:
         con.sendall(base64.b64encode(f1.read()))
+        print("sended file")
     con.close()
 
 
@@ -150,14 +156,13 @@ if __name__ == '__main__':
     arg = parse_arg()
     input_object_path: str = arg[0]
     target_host: str = arg[3]
-    secure_flag: bool = bool(arg[4])
-    zip_name: str = arg[1]
+    secure_flag: bool = arg[4] == "True"
+    zip_name: str = arg[1]+".zip"
     folder_name: str = arg[2]
     input_object_path_is_file: bool = os.path.isfile(input_object_path)
     zip_path: str = input_object_path if input_object_path_is_file else "." + \
         os.path.sep+"tmp"+os.path.sep+folder_name+".zip"
     passwd: str = getPass()
-
     if secure_flag:
         con, cipher_suite = establish_PPAPS_connection(target_host)
         if input_object_path_is_file:
@@ -184,8 +189,9 @@ if __name__ == '__main__':
                 print("パスワード付きzipファイルのみ送信可能です。")
         else:
             zipdir(input_object_path, zip_path, passwd)
+            print(zip_path)
             if check_password_protected_zip(zip_path):
-                send_file_with_ppap(zip_name, folder_name, con, passwd)
+                send_file_with_ppap(zip_name, zip_path, con, passwd)
                 os.remove(zip_path)
             else:
                 print("パスワード付きzipファイルの作成に失敗しました")
