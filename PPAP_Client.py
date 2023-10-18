@@ -101,9 +101,10 @@ def get_files_in_directory(directory) -> list[str]:
     return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) and f.endswith(".pem")]
 
 
-def is_trusted_pubk():
-    get_files_in_directory()
-    pass
+def is_trusted_pubk(key)->bool:
+    for f in get_files_in_direckeytory(key):
+        with open(f,"r"):
+            return key==RSA.import_key(f.read())
 
 
 def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
@@ -115,11 +116,7 @@ def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
     server_pubkey = con.recv(3000)  # recv pubk
     imported_server_pubk = RSA.import_key(server_pubkey)
     con.sendall(bytes(b"ACK"))
-    trusted = False
-    for key in get_or_create_TPKL_if_not_exist():
-        if key == imported_server_pubk:
-            trusted = True
-    if not trusted:
+    if not is_trusted_pubK(imported_server_pubK):
         _continue = True
         while (_continue):
             answer = input(
