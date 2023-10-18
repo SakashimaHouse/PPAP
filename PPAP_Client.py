@@ -110,7 +110,7 @@ def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
     return (con, cipher_suite)
 
 
-# TODO: チェックサムの算出と検証
+# TODO: チェックサムの算出と検証+署名
 def send_file_with_ppap(zip_name, zip_path: str, con: socket.socket, passwd: str):
     """
     ファイルやその他情報を通常の通信を用いて送信します
