@@ -122,13 +122,14 @@ def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
             answer = input(
                 "未知の公開鍵です。信頼して./pubKs/trusted.listに追加しますか？(Y/N)").lower()
             if answer == "y":
+                add_line_to_file("pubks"+os.path.sep+"trusted.list", server_pubkey)
                 break
             elif answer == "n":
                 exit(0)
             else:
                 continue
-    add_line_to_file("pubks"+os.path.sep+"trusted.list", server_pubkey)
-    ne = server_pubkey.decode("utf-8").split(",")
+    
+    ne = server_pubkey.decode("utf-8").split(",")# TODO ここ以降変更が必要
     public_key = RSA.construct((int(ne[0]), int(ne[1])))
     common_key = Fernet.generate_key()
     encryptor = PKCS1_OAEP.new(public_key)
