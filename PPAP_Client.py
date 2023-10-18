@@ -64,6 +64,12 @@ def zipdir(target_directory, out_zip_file_path, password):
                 zf.write(os.path.abspath(foldername)+os.path.sep+filename)
 
 
+def add_line_to_file(filepath, text):
+    with open(filepath, 'a') as f1:
+        f1.write(text+os.linesep)
+        f1.close()
+
+
 def check_password_protected_zip(file_path: str) -> bool:
     """
     指定されたパスがパスワード付きzipファイルかどうかチェックします。
@@ -72,11 +78,11 @@ def check_password_protected_zip(file_path: str) -> bool:
         with zipfile.ZipFile(file_path) as zip_file:
             zip_file.testzip()
             return False
-    except RuntimeError:#passwordつきzipファイルだとランタイムエラーが発生する
+    except RuntimeError:  # passwordつきzipファイルだとランタイムエラーが発生する
         return True
     except Exception:
-        #そもそもzipファイルでないばあい。そのばあいはzipfile.BadZipFileが発生するはずなのだが
-        #exceptにそれを指定するとなぜかきちんと動かない為、Exceptionで吸収している
+        # そもそもzipファイルでないばあい。そのばあいはzipfile.BadZipFileが発生するはずなのだが
+        # exceptにそれを指定するとなぜかきちんと動かない為、Exceptionで吸収している
         return False
 
 
@@ -91,15 +97,41 @@ def getPass():
     return passwd
 
 
+def get_files_in_directory(directory) -> list[str]:
+    return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) and f.endswith(".pem")]
+
+
+def is_trusted_pubk():
+    get_files_in_directory()
+    pass
+
+
 def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
     """
     PPAPS接続を確立します
     """
     con = socket.socket()
     con.connect((target, PORT_PPAPS))
-    server_pubkey = con.recv(1024)
+    server_pubkey = con.recv(3000)  # recv pubk
+    imported_server_pubk = RSA.import_key(server_pubkey)
     con.sendall(bytes(b"ACK"))
-    ne = server_pubkey.decode("utf-8").split("\n")
+    trusted = False
+    for key in get_or_create_TPKL_if_not_exist():
+        if key == imported_server_pubk:
+            trusted = True
+    if not trusted:
+        _continue = True
+        while (_continue):
+            answer = input(
+                "未知の公開鍵です。信頼して./pubKs/trusted.listに追加しますか？(Y/N)").lower()
+            if answer == "y":
+                break
+            elif answer == "n":
+                exit(0)
+            else:
+                continue
+    add_line_to_file("pubks"+os.path.sep+"trusted.list", server_pubkey)
+    ne = server_pubkey.decode("utf-8").split(",")
     public_key = RSA.construct((int(ne[0]), int(ne[1])))
     common_key = Fernet.generate_key()
     encryptor = PKCS1_OAEP.new(public_key)
@@ -136,15 +168,17 @@ def send_file_with_PPAPS(zip_path: str, cipher_suite: Fernet, passwd: str, zip_n
     """
     ファイルやその他情報をハイブリッド暗号を用いて送信します
     """
-    con.sendall(base64.b64encode(cipher_suite.encrypt(bytes(zip_name,"utf8"))))
+    con.sendall(base64.b64encode(
+        cipher_suite.encrypt(bytes(zip_name, "utf8"))))
     con.recv(1024)  # receive ACK
-    con.sendall(base64.b64encode(cipher_suite.encrypt(bytes(passwd,"utf-8"))))
+    con.sendall(base64.b64encode(cipher_suite.encrypt(bytes(passwd, "utf-8"))))
     con.recv(1024)  # receive ACK
     with open(zip_path, 'br') as f1:
         con.sendall(base64.b64encode(cipher_suite.encrypt(f1.read())))
     con.close()
 
 
+# TODO: 暗号化では、オプションで信頼できる公開鍵リストを使用して、なりすましのサーバに対応可能にする
 # ポート番号はppapをbase64(https://v2.cryptii.com/base64/decimal )でデコードした番号
 PORT_PPAP = 26025
 PORT_PPAPS = 26026
@@ -164,7 +198,7 @@ if __name__ == '__main__':
     input_object_path: str = arg[0]
     target_host: str = arg[3]
     secure_flag: bool = arg[4] == "True"
-    
+
     folder_name: str = arg[2]
     input_object_path_is_file: bool = os.path.isfile(input_object_path)
     zip_path: str = input_object_path if input_object_path_is_file else "." + \
@@ -201,6 +235,7 @@ if __name__ == '__main__':
             if check_password_protected_zip(zip_path):
                 send_file_with_ppap(zip_name, zip_path, con, passwd)
                 os.remove(zip_path)
+                os.rmdir("tmp")
             else:
                 print("パスワード付きzipファイルの作成に失敗しました")
 

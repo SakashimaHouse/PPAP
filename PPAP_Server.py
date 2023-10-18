@@ -4,6 +4,7 @@ import argparse
 from cryptography.fernet import Fernet
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
+import os
 
 
 def parse_arg() -> bool:
@@ -50,18 +51,42 @@ def wait_connection(port: int) -> socket.socket:
     return (con)
 
 
+def generate_priv_key() -> RSA.RsaKey:
+    keyPair = RSA.generate(bits=2048)
+    try:
+        os.mkdir(".privK")
+    except:
+        pass
+    with open(".privK"+os.path.sep+"private.pem", 'bw') as f:
+        f.write(keyPair.export_key())
+        f.close()
+    return keyPair
+
+
+def get_or_create_priv_key_if_not_exist() -> RSA.RsaKey:
+    if os.path.exists(".privK"+os.path.sep+"private.pem"):
+        with open(".privK"+os.path.sep+"private.pem", 'br') as f:
+            key = f.read()
+            if len(key) < 10:
+                keypair = generate_priv_key()
+            else:
+                keypair = RSA.import_key(key)
+            f.close()
+            return keypair
+    else:
+        return generate_priv_key()
+
+
 def establish_ppaps_connection(con: socket.socket) -> Fernet:
     """
     セキュア通信の準備として鍵交換を行う
     プログラムの流れ
         サーバ側の公開鍵を送る
         クライアントから共通鍵を受け取る
-        この共通鍵を復号化し、呼び出し元に返す
+         この共通鍵を復号化し、呼び出し元に返す
     """
-    keyPair = RSA.generate(bits=1024)
-
-    con.sendall(bytes(str(keyPair.publickey().n) +
-                      "\n"+str(keyPair.publickey().e), "utf-8"))
+    keyPair = get_or_create_priv_key_if_not_exist()
+    con.sendall(keyPair.public_key().export_key())
     con.recv(1024)  # receive ACK
     encrypted_common_key = con.recv(1024)
     con.sendall(bytes(b"ACK"))
@@ -75,7 +100,7 @@ def decrypt(cipher_encrypted_text, cipher_suite: Fernet) -> bytes:
     """
     base64デコードしたのち、cipher_suiteで複合化する。
     """
-    return(cipher_suite.decrypt(
+    return (cipher_suite.decrypt(
         base64.b64decode(cipher_encrypted_text)))
 
 
@@ -99,7 +124,7 @@ def ppaps(server: socket.socket):
     con.sendall(bytes(b"ACK"))
     passwd = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
     con.sendall(bytes(b"ACK"))
-    data = decrypt(receive_data_until_end(con),cipher_suite)
+    data = decrypt(receive_data_until_end(con), cipher_suite)
     save_bfile(name, data)
     print("password is "+passwd)
     con.close()
@@ -117,7 +142,7 @@ def ppap(server: socket.socket):
     passwd = con.recv(1024).decode("utf-8")
     con.sendall(bytes(b"ACK"))
     data = base64.b64decode(receive_data_until_end(con))
-    
+
     save_bfile(name, data)
     print("password is "+passwd)
     con.close()
