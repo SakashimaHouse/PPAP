@@ -102,7 +102,7 @@ def get_files_in_directory(directory) -> list[str]:
 
 
 def is_trusted_pubk(key)->bool:
-    for f in get_files_in_direckeytory(key):
+    for f in get_files_in_directory(key):
         with open(f,"r"):
             return key==RSA.import_key(f.read())
 
