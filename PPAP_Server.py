@@ -1,3 +1,4 @@
+import hashlib
 import socket
 import base64
 import argparse
@@ -5,6 +6,7 @@ from cryptography.fernet import Fernet
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import os
+from random_art.randomart import draw, drunkenwalk
 
 
 def parse_arg() -> bool:
@@ -90,7 +92,9 @@ def establish_ppaps_connection(con: socket.socket) -> Fernet:
     con.recv(1024)  # receive ACK
     encrypted_common_key = con.recv(4096)
     con.sendall(bytes(b"ACK"))
-    print(encrypted_common_key)
+    print("This Server's Public key:")
+    print(draw(drunkenwalk(hashlib.sha256(
+        keyPair.public_key().export_key()).digest()), "BLAKE2b/64"))
     decryptor = PKCS1_OAEP.new(keyPair)
     common_key = decryptor.decrypt(encrypted_common_key)
     cipher_suite = Fernet(common_key)
