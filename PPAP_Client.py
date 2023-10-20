@@ -101,11 +101,34 @@ def get_files_in_directory(directory) -> list[str]:
     return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) and f.endswith(".pem")]
 
 
-def is_trusted_pubk(key)->bool:
-    for f in get_files_in_directory(key):
-        with open(f,"r"):
-            return key==RSA.import_key(f.read())
+def is_trusted_pubK(key)->bool:
+    try:
+        os.mkdir("pubKs")
+    except Exception:
+        pass
+    for f in get_files_in_directory("pubKs"+os.path.sep):
+        with open("pubKs"+os.path.sep+f,"r") as f1:
+            return key==RSA.import_key(f1.read())
+    return False
 
+def save_key(pubkey,path):
+    with open(path,"wb") as f1:
+        f1.write(pubkey.export_key())
+        f1.close()
+        
+def ask_if_save_key_or_not(imported_server_pub_key):
+        _continue = True
+        count=len(os.listdir("pubKs"))
+        while (_continue):
+            answer = input(
+                "未知の公開鍵です。信頼して./pubKs/trusted"+str(count+1)+".pemに追加しますか？(Y/N)").lower()
+            if answer == "y":
+                save_key(imported_server_pub_key,"./pubKs/trusted"+str(count+1)+".pem")
+                break
+            elif answer == "n":
+                exit(0)
+            else:
+                continue
 
 def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
     """
@@ -116,23 +139,11 @@ def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
     server_pubkey = con.recv(3000)  # recv pubk
     imported_server_pubk = RSA.import_key(server_pubkey)
     con.sendall(bytes(b"ACK"))
-    if not is_trusted_pubK(imported_server_pubK):
-        _continue = True
-        while (_continue):
-            answer = input(
-                "未知の公開鍵です。信頼して./pubKs/trusted.listに追加しますか？(Y/N)").lower()
-            if answer == "y":
-                add_line_to_file("pubks"+os.path.sep+"trusted.list", server_pubkey)
-                break
-            elif answer == "n":
-                exit(0)
-            else:
-                continue
-    
-    ne = server_pubkey.decode("utf-8").split(",")# TODO ここ以降変更が必要
-    public_key = RSA.construct((int(ne[0]), int(ne[1])))
+    #TODO:公開鍵のビジュアライズ
+    if not is_trusted_pubK(imported_server_pubk):
+        ask_if_save_key_or_not(imported_server_pubk)
     common_key = Fernet.generate_key()
-    encryptor = PKCS1_OAEP.new(public_key)
+    encryptor = PKCS1_OAEP.new(imported_server_pubk)
     encrypted_common_key = encryptor.encrypt(common_key)
     con.sendall(encrypted_common_key)
     con.recv(1024)  # receive ACK

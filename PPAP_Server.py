@@ -83,13 +83,14 @@ def establish_ppaps_connection(con: socket.socket) -> Fernet:
     プログラムの流れ
         サーバ側の公開鍵を送る
         クライアントから共通鍵を受け取る
-         この共通鍵を復号化し、呼び出し元に返す
+        この共通鍵を復号化し、呼び出し元に返す
     """
     keyPair = get_or_create_priv_key_if_not_exist()
     con.sendall(keyPair.public_key().export_key())
     con.recv(1024)  # receive ACK
-    encrypted_common_key = con.recv(1024)
+    encrypted_common_key = con.recv(4096)
     con.sendall(bytes(b"ACK"))
+    print(encrypted_common_key)
     decryptor = PKCS1_OAEP.new(keyPair)
     common_key = decryptor.decrypt(encrypted_common_key)
     cipher_suite = Fernet(common_key)
