@@ -164,6 +164,7 @@ def send_file_with_ppap(zip_name, zip_path: str, con: socket.socket, passwd: str
     ファイルやその他情報を通常の通信を用いて送信します
     """
     print("sending")
+    name_hash=hashlib
     con.sendall(bytes(zip_name, "utf-8"))
     print("sended name")
     con.recv(1024)  # receive ACK
