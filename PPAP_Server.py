@@ -105,9 +105,17 @@ def decrypt(cipher_encrypted_text, cipher_suite: Fernet) -> bytes:
     """
     base64デコードしたのち、cipher_suiteで複合化する。
     """
-    return (cipher_suite.decrypt(
-        base64.b64decode(cipher_encrypted_text)))
+    return (cipher_suite.decrypt(cipher_encrypted_text))
 
+def receive_checked_data(con:socket.socket,cipher_suite:Fernet)->str:
+    hash=decrypt(con.recv(1024),cipher_suite)
+    con.sendall(bytes(b"ACK"))
+    data=decrypt(con.recv(1024),cipher_suite)
+    con.sendall(bytes(b"ACK"))
+    if hashlib.sha256(data).digest()==hash:
+        return data.decode("utf-8")
+    print("ハッシュが一致しません")
+    exit(0)
 
 def save_bfile(path, b_contents):
     """
@@ -117,7 +125,6 @@ def save_bfile(path, b_contents):
     with open(path, 'bw') as f:
         f.write(b_contents)
 
-
 # TODO: チェックサムの算出と検証
 def ppaps(server: socket.socket):
     """
@@ -125,13 +132,16 @@ def ppaps(server: socket.socket):
     """
     con = wait_connection(26026)
     cipher_suite = establish_ppaps_connection(con)
-    name = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
-    con.sendall(bytes(b"ACK"))
-    passwd = decrypt(con.recv(1024), cipher_suite).decode("utf-8")
+    name = receive_checked_data(con,cipher_suite)
+    passwd = receive_checked_data(con,cipher_suite)
+    file_hash = decrypt(con.recv(1024), cipher_suite)
     con.sendall(bytes(b"ACK"))
     data = decrypt(receive_data_until_end(con), cipher_suite)
-    save_bfile(name, data)
-    print("password is "+passwd)
+    if hashlib.sha256(data).digest()==file_hash:
+        save_bfile(name, data)
+        print("password is "+passwd)
+    else:
+        print("ファイルハッシュが一致しません")
     con.close()
     server.close()
 

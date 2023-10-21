@@ -164,7 +164,6 @@ def send_file_with_ppap(zip_name, zip_path: str, con: socket.socket, passwd: str
     ファイルやその他情報を通常の通信を用いて送信します
     """
     print("sending")
-    name_hash=hashlib
     con.sendall(bytes(zip_name, "utf-8"))
     print("sended name")
     con.recv(1024)  # receive ACK
@@ -185,13 +184,20 @@ def send_file_with_PPAPS(zip_path: str, cipher_suite: Fernet, passwd: str, zip_n
     """
     ファイルやその他情報をハイブリッド暗号を用いて送信します
     """
-    con.sendall(base64.b64encode(
-        cipher_suite.encrypt(bytes(zip_name, "utf8"))))
+    con.sendall(cipher_suite.encrypt(hashlib.sha256(bytes(zip_name,"utf-8")).digest()))
     con.recv(1024)  # receive ACK
-    con.sendall(base64.b64encode(cipher_suite.encrypt(bytes(passwd, "utf-8"))))
+    con.sendall(
+        cipher_suite.encrypt(bytes(zip_name, "utf8"))) 
+    con.recv(1024)  # receive ACK
+    con.sendall(cipher_suite.encrypt(hashlib.sha256(bytes(passwd,"utf-8")).digest()))
+    con.recv(1024)  # receive ACK
+    con.sendall(cipher_suite.encrypt(bytes(passwd, "utf-8")))
     con.recv(1024)  # receive ACK
     with open(zip_path, 'br') as f1:
-        con.sendall(base64.b64encode(cipher_suite.encrypt(f1.read())))
+        file_naiyou=f1.read()
+        con.sendall(cipher_suite.encrypt(hashlib.sha256(file_naiyou).digest()))
+        con.recv(1024)  # receive ACK
+        con.sendall(cipher_suite.encrypt(file_naiyou))
     con.close()
 
 
