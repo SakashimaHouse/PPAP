@@ -49,13 +49,13 @@ def receive_data_until_end(con) -> bytes:
         if not temp:
             break
     con.sendall(bytes(b"ACK"))
-    print("受け取り終了")
-    end_request.put(True)
+    print("受け取り終了          ")#\rを使ってプログレス表示をしているのでスペースを入れて残っている表示をクリアする
+    end_request.put(received_length)
     return (b''.join(data))
 def print_receiving_progress(progress:queue.Queue[int],end_request:queue.Queue):
     while end_request.empty():
           print("progress:"+str(progress.get()),end='\r')
-    print("progress:完了")
+    print("progress:"+str(end_request.get())+"bytes\n\t完了")
 
 def wait_connection(port: int) -> socket.socket:
     """
@@ -103,12 +103,12 @@ def establish_ppaps_connection(con: socket.socket) -> Fernet:
     """
     keyPair = get_or_create_priv_key_if_not_exist()
     con.sendall(keyPair.public_key().export_key())
+    print(draw(drunkenwalk(hashlib.sha256(
+        keyPair.public_key().export_key()).digest()), "BLAKE2b/64"))
     con.recv(1024)  # receive ACK
     encrypted_common_key = con.recv(4096)
     con.sendall(bytes(b"ACK"))
     print("This Server's Public key:")
-    print(draw(drunkenwalk(hashlib.sha256(
-        keyPair.public_key().export_key()).digest()), "BLAKE2b/64"))
     decryptor = PKCS1_OAEP.new(keyPair)
     common_key = decryptor.decrypt(encrypted_common_key)
     cipher_suite = Fernet(common_key)
@@ -135,7 +135,7 @@ def save_bfile(path, b_contents):
     """
     バイナリデータをファイルに保存する
     """
-    print(path)
+    print("adding: "+path)
     with open(path, 'bw') as f:
         f.write(b_contents)
 
@@ -153,7 +153,7 @@ def ppaps(server: socket.socket):
     data = decrypt(receive_data_until_end(con), cipher_suite)
     if hashlib.sha256(data).digest()==file_hash:
         save_bfile(name, data)
-        print("password is "+passwd)
+        print("password: "+passwd)
     else:
         print("ファイルハッシュが一致しません")
     con.close()

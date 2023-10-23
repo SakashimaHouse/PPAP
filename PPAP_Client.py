@@ -175,7 +175,7 @@ def send_file_with_ppap(zip_name, zip_path: str, con: socket.socket, passwd: str
     print(zip_path)
     with open(zip_path, 'br') as f1:
         con.sendall(base64.b64encode(f1.read()))
-        print("sended file")
+        print("Sent file")
     con.close()
 
 
