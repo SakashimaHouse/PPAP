@@ -52,7 +52,7 @@ def receive_data_until_end(con) -> bytes:
     print("受け取り終了          ")#\rを使ってプログレス表示をしているのでスペースを入れて残っている表示をクリアする
     end_request.put(received_length)
     return (b''.join(data))
-def print_receiving_progress(progress:queue.Queue[int],end_request:queue.Queue):
+def print_receiving_progress(progress:queue.Queue,end_request:queue.Queue):
     while end_request.empty():
           print("progress:"+str(progress.get()),end='\r')
     print("progress:"+str(end_request.get())+"bytes\n\t完了")
