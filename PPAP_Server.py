@@ -6,8 +6,9 @@ from cryptography.fernet import Fernet
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import os
+import threading
 from random_art.randomart import draw, drunkenwalk
-
+import queue
 
 def parse_arg() -> bool:
     """
@@ -34,14 +35,27 @@ def receive_data_until_end(con) -> bytes:
     """
     接続終了までセグメントを受信する
     """
-    data = b""
+    progress=queue.Queue()
+    end_request=queue.Queue()
+    received_length=0
+    threading.Thread(target=print_receiving_progress,args=(progress,end_request)).start()
+    data = []
+    print("受け取り中")
     while True:
+        received_length+=1024
+        progress.put(received_length)
         temp = con.recv(1024)
-        data += temp
+        data.append(temp)
         if not temp:
             break
-    return (data)
-
+    con.sendall(bytes(b"ACK"))
+    print("受け取り終了")
+    end_request.put(True)
+    return (b''.join(data))
+def print_receiving_progress(progress:queue.Queue[int],end_request:queue.Queue):
+    while end_request.empty():
+          print("progress:"+str(progress.get()),end='\r')
+    print("progress:完了")
 
 def wait_connection(port: int) -> socket.socket:
     """
@@ -156,6 +170,7 @@ def ppap(server: socket.socket):
     con.sendall(bytes(b"ACK"))
     passwd = con.recv(1024).decode("utf-8")
     con.sendall(bytes(b"ACK"))
+
     data = base64.b64decode(receive_data_until_end(con))
 
     save_bfile(name, data)

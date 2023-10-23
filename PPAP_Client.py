@@ -198,6 +198,7 @@ def send_file_with_PPAPS(zip_path: str, cipher_suite: Fernet, passwd: str, zip_n
         con.sendall(cipher_suite.encrypt(hashlib.sha256(file_naiyou).digest()))
         con.recv(1024)  # receive ACK
         con.sendall(cipher_suite.encrypt(file_naiyou))
+        print("sended file")
     con.close()
 
 
