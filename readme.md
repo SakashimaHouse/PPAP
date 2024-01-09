@@ -1,77 +1,56 @@
-# PPAP(Password 付き zip ファイルを送ります Password を送ります Angouka Protocol)
+# PPAP
+## Requirements
+Python 3.10+  
 
-このリポジトリでは TCP ポート 26025 で動作する、PPAP/PPAPS プロトコルの定義と実装例を示します。
-PPAPS ではハイブリッド暗号方式を用います。
-
-## 実行方法は以下の通りです
-
-1. python3 -m pip install -r requirements.txt
-2. サーバー側`python .\PPAP_Server.py`
-3. クライアント側`python .\PPAP_Client.py -i .\testdir\ -t 127.0.0.1`
-
-## Example
-
-### Server
-
-```bash
-C:\>python PPAP_Server.py -s
-This Server's Public key:
-╭──╴randomart.py╶──╮
-│             *!** │
-│          .. !~_* │
-│         .. *.!~. │
-│..        .  *=*  │
-│..       .   *..*.│
-│                .*│
-│               . *│
-│*             . ..│
-│             ...  │
-╰───╴BLAKE2b/64╶───╯
-
-testdir.zip
-password is P@ssw0rd
+## Installation
+1. リポジトリのクローン
+```
+$ git clone https://github.com/SakashimaHouse/PPAP.git
+$ cd ./PPAP
+```
+2. 依存関係のインストール
+```
+$ pip install -r requirements.txt
 ```
 
-### Client
-
-```bash
-C:\>python PPAP*Client.py -i "C:\Users\spyk4\Downloads\testdir.zip" -t 127.0.0.1 -s
-password:
-Target Server's public key:
-╭──╴randomart.py╶──╮
-│             *!** │
-│          .. !~_* │
-│         .. *.!~. │
-│..        .  *=*  │
-│..       .   *..*.│
-│                .*│
-│               . *│
-│*             . ..│
-│             ...  │
-╰───╴BLAKE2b/64╶───╯
-
-未知の公開鍵です。信頼して./pubKs/trusted1.pem に追加しますか？(Y/N)Y
+## Usage
+1. サーバーの起動
+```
+$ python PPAP_Server.py -s
 
 ```
+2. パスワード付きZIPファイルを作成
+```
+$ sudo apt-get install zip -y
+$ mkdir example
+$ zip --encrypt -password P@ssw0rd ./example.zip ./example
+```
+3. ファイルの送信
+```
+$ python PPAP_Client.py -i "./example.zip" -t 127.0.0.1 -s
+```
 
-## PPAP フロー
+## Logic
+### PPAP (非暗号化プロトコル)
+```mermaid
+sequenceDiagram
+    participant C as クライアント
+    participant S as サーバー
+    C-->S: TCPコネクション確立
+    C->>S: ZIPファイル、ZIPファイルのパスワードを送信
+```
 
-TCP コネクション確立  
-↓  
-ファイル名
-↓
-パスワード
-↓
-zip ファイル
-↓  
-完了
+### PPAPS (暗号化プロトコル)
+```mermaid
+sequenceDiagram
+    participant C as クライアント
+    participant S as サーバー
+    C-->S: TCPコネクション確立
+    S->>C: サーバー公開鍵
+    Note left of C: サーバー公開鍵を信頼する<br>公開鍵リストに参照、登録
+    C->>S: 共通鍵の作成、サーバー公開鍵で暗号化し送信
+    C->>S: ZIPファイル、ZIPファイルのパスワードを共通鍵で暗号化し送信
+```
 
-## PPAPS フロー
-
-TCP コネクション確立  
-↓  
-サーバから公開鍵送信  
-↓  
-クライアントから公開鍵で暗号化した共通鍵を送信  
-↓  
-以後共通鍵で暗号化した状態で PPAP と同じフローの通信を行う
+## License
+このプロジェクトはMIT Licenseに基づきライセンスされています

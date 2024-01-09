@@ -103,12 +103,12 @@ def establish_ppaps_connection(con: socket.socket) -> Fernet:
     """
     keyPair = get_or_create_priv_key_if_not_exist()
     con.sendall(keyPair.public_key().export_key())
+    print("このサーバーの公開鍵:")
     print(draw(drunkenwalk(hashlib.sha256(
         keyPair.public_key().export_key()).digest()), "BLAKE2b/64"))
     con.recv(1024)  # receive ACK
     encrypted_common_key = con.recv(4096)
     con.sendall(bytes(b"ACK"))
-    print("This Server's Public key:")
     decryptor = PKCS1_OAEP.new(keyPair)
     common_key = decryptor.decrypt(encrypted_common_key)
     cipher_suite = Fernet(common_key)
@@ -135,7 +135,7 @@ def save_bfile(path, b_contents):
     """
     バイナリデータをファイルに保存する
     """
-    print("adding: "+path)
+    print("追加ファイル: "+path)
     with open(path, 'bw') as f:
         f.write(b_contents)
 
@@ -147,13 +147,13 @@ def ppaps(server: socket.socket):
     con = wait_connection(26026)
     cipher_suite = establish_ppaps_connection(con)
     name = receive_checked_data(con,cipher_suite)
-    passwd = receive_checked_data(con,cipher_suite)
+    passwd = receive_checked_data(con, cipher_suite)
     file_hash = decrypt(con.recv(1024), cipher_suite)
     con.sendall(bytes(b"ACK"))
     data = decrypt(receive_data_until_end(con), cipher_suite)
     if hashlib.sha256(data).digest()==file_hash:
         save_bfile(name, data)
-        print("password: "+passwd)
+        print(f"ZIPファイルのパスワード: {passwd}")
     else:
         print("ファイルハッシュが一致しません")
     con.close()
@@ -174,7 +174,7 @@ def ppap(server: socket.socket):
     data = base64.b64decode(receive_data_until_end(con))
 
     save_bfile(name, data)
-    print("password is "+passwd)
+    print("ZIPファイルのパスワード: "+passwd)
     con.close()
     server.close()
 

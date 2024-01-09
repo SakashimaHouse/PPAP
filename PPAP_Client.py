@@ -88,14 +88,14 @@ def check_password_protected_zip(file_path: str) -> bool:
         return False
 
 
-def getPass():
+def get_pass():
     """
     パスワードの入力を求めます。
     入力したパスワードはコンソール上で非表示です。
     返り値：
         パスワード:str
     """
-    passwd = getpass.getpass("password:")
+    passwd = getpass.getpass("ZIPファイルのパスワード:")
     return passwd
 
 
@@ -125,7 +125,7 @@ def ask_if_save_key_or_not(imported_server_pub_key):
     count = len(os.listdir("pubKs"))
     while (_continue):
         answer = input(
-            "未知の公開鍵です。信頼して./pubKs/trusted"+str(count+1)+".pemに追加しますか？(Y/N)").lower()
+            "未知の公開鍵です。信頼して./pubKs/trusted"+str(count+1)+".pemに追加しますか? (Y/N)").lower()
         if answer == "y":
             save_key(imported_server_pub_key,
                      "./pubKs/trusted"+str(count+1)+".pem")
@@ -145,7 +145,7 @@ def establish_PPAPS_connection(target: str) -> tuple[socket.socket, Fernet]:
     server_pubkey = con.recv(3000)  # recv pubk
     imported_server_pubk = RSA.import_key(server_pubkey)
     con.sendall(bytes(b"ACK"))
-    print("Target Server's public key:")
+    print("対象サーバーの公開鍵:")
     print(draw(drunkenwalk(hashlib.sha256(server_pubkey).digest()), "BLAKE2b/64"))
     if not is_trusted_pubK(imported_server_pubk):
         ask_if_save_key_or_not(imported_server_pubk)
@@ -198,7 +198,7 @@ def send_file_with_PPAPS(zip_path: str, cipher_suite: Fernet, passwd: str, zip_n
         con.sendall(cipher_suite.encrypt(hashlib.sha256(file_naiyou).digest()))
         con.recv(1024)  # receive ACK
         con.sendall(cipher_suite.encrypt(file_naiyou))
-        print("sended file")
+        print("ファイルを送信しました")
     con.close()
 
 
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     zip_path: str = input_object_path if input_object_path_is_file else "." + \
         os.path.sep+"tmp"+os.path.sep+folder_name+".zip"
     zip_name: str = os.path.basename(zip_path)
-    passwd: str = getPass()
+    passwd: str = get_pass()
     if secure_flag:
         con, cipher_suite = establish_PPAPS_connection(target_host)
         if input_object_path_is_file:
@@ -236,7 +236,7 @@ if __name__ == '__main__':
                 send_file_with_PPAPS(
                     zip_path, cipher_suite, passwd, zip_name, con)
             else:
-                print("パスワード付きzipファイルのみ送信可能です。")
+                print("パスワード付きzipファイルのみ送信可能です")
         else:
             zipdir(input_object_path, zip_path, passwd)
             if check_password_protected_zip(zip_path):
@@ -252,7 +252,7 @@ if __name__ == '__main__':
             if check_password_protected_zip(input_object_path):
                 send_file_with_ppap(zip_name, zip_path, con, passwd)
             else:
-                print("パスワード付きzipファイルのみ送信可能です。")
+                print("パスワード付きzipファイルのみ送信可能です")
         else:
             zipdir(input_object_path, zip_path, passwd)
             print(zip_path)
@@ -267,7 +267,6 @@ if __name__ == '__main__':
 """
 以下コードスペニット
 """
-
 
 # windowsの標準コマンドであるcompactを使う方法では、/P:オプションが廃止されていたので諦めた
 # def make_zip(directory, zipname, passwd):
