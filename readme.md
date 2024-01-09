@@ -1,4 +1,8 @@
 # PPAP
+![logo](./resources/logo.png)
+このプロジェクトははTCPで動作するパスワード付きZIPファイルを送信するためのプロトコルの定義と実装例です。  
+ハイブリッド暗号方式を使用する暗号化通信にも対応しています。
+
 ## Requirements
 Python 3.10+  
 
@@ -32,25 +36,10 @@ $ python PPAP_Client.py -i "./example.zip" -t 127.0.0.1 -s
 
 ## Logic
 ### PPAP (非暗号化プロトコル)
-```mermaid
-sequenceDiagram
-    participant C as クライアント
-    participant S as サーバー
-    C-->S: TCPコネクション確立
-    C->>S: ZIPファイル、ZIPファイルのパスワードを送信
-```
+![logic_ppap](./resources/logic_ppap.png)
 
 ### PPAPS (暗号化プロトコル)
-```mermaid
-sequenceDiagram
-    participant C as クライアント
-    participant S as サーバー
-    C-->S: TCPコネクション確立
-    S->>C: サーバー公開鍵
-    Note left of C: サーバー公開鍵を信頼する<br>公開鍵リストに参照、登録
-    C->>S: 共通鍵の作成、サーバー公開鍵で暗号化し送信
-    C->>S: ZIPファイル、ZIPファイルのパスワードを共通鍵で暗号化し送信
-```
+![logic_ppaps](./resources/logic_ppaps.png)
 
 ## License
 このプロジェクトはMIT Licenseに基づきライセンスされています
